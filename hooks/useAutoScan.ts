@@ -85,23 +85,27 @@ export function useAutoScan({
     setIsProcessing(true);
     requestCountRef.current += 1;
 
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 8500);
+
     try {
       const res = await fetch("/api/describe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageBase64, mode }),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
         if (res.status === 429) {
           speak("Server busy. Pausing briefly.", false);
-          backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 2);
+          backoffDelayRef.current = Math.min(6000, backoffDelayRef.current * 1.5);
           scheduleNext(backoffDelayRef.current);
           return;
         }
         if (res.status === 504) {
           speak("Vision request timed out. Retrying.", false);
-          backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 1.5);
+          backoffDelayRef.current = Math.min(6000, backoffDelayRef.current * 1.5);
           scheduleNext(backoffDelayRef.current);
           return;
         }
@@ -115,7 +119,7 @@ export function useAutoScan({
       if (isMountedRef.current) {
         setResultText(output);
         resetInactivityTimer();
-        backoffDelayRef.current = 600;
+        backoffDelayRef.current = 400;
 
         if (hasHazards) {
           vibrate("hazard");
@@ -127,7 +131,7 @@ export function useAutoScan({
 
         speak(output, true, () => {
           if (isMountedRef.current && isScanning) {
-            scheduleNext(350);
+            scheduleNext(300);
           }
         });
       }
@@ -136,10 +140,11 @@ export function useAutoScan({
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           speak("You are offline.", false);
         }
-        backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 1.8);
+        backoffDelayRef.current = Math.min(5000, backoffDelayRef.current * 1.5);
         scheduleNext(backoffDelayRef.current);
       }
     } finally {
+      clearTimeout(timeoutId);
       if (isMountedRef.current) {
         setIsProcessing(false);
       }

@@ -38,7 +38,7 @@ export function checkRateLimit(rawIp: string): { allowed: boolean; remaining: nu
 // Origin Verification to prevent cross-site abuse
 export function verifyOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
 
   if (!host) return false;
 
@@ -50,7 +50,9 @@ export function verifyOrigin(request: Request): boolean {
 
   try {
     const sourceHost = new URL(source).host;
-    return sourceHost === host;
+    if (sourceHost === host) return true;
+    // Allow matching hostname even if internal port was stripped by reverse proxy
+    return sourceHost.split(":")[0] === host.split(":")[0];
   } catch {
     return false;
   }
