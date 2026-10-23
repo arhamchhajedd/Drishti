@@ -29,7 +29,7 @@ export function CameraResultCard({
           aria-label="Repeat description aloud"
         >
           <span>↺</span>
-          <span>Repeat</span>
+          <span>Repeat </span>
         </button>
       </div>
 
