@@ -9,6 +9,11 @@ interface TorchCapabilities extends MediaTrackCapabilities {
 export function useCamera(onError?: (errorMessage: string) => void) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  });
 
   const [isActive, setIsActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +33,17 @@ export function useCamera(onError?: (errorMessage: string) => void) {
   }, []);
 
   const startCamera = useCallback(async () => {
+    // If stream is already active and tracks are running, avoid duplicate restarts
+    if (streamRef.current && streamRef.current.active && streamRef.current.getVideoTracks().some(t => t.readyState === "live")) {
+      setIsActive(true);
+      setError(null);
+      return;
+    }
+
     try {
       stopCamera();
+
+      let mediaStream: MediaStream;
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: "environment" },
@@ -39,7 +53,13 @@ export function useCamera(onError?: (errorMessage: string) => void) {
         audio: false,
       };
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        // Fallback for laptops, webcams, or browsers with strict constraint checks
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
       streamRef.current = mediaStream;
 
       if (videoRef.current) {
@@ -53,10 +73,10 @@ export function useCamera(onError?: (errorMessage: string) => void) {
           setIsActive(false);
           const msg = "Camera connection lost.";
           setError(msg);
-          onError?.(msg);
+          onErrorRef.current?.(msg);
         };
         const capabilities = videoTrack.getCapabilities() as TorchCapabilities;
-        setHasTorch(Boolean(capabilities.torch));
+        setHasTorch(Boolean(capabilities?.torch));
       }
 
       setError(null);
@@ -65,9 +85,9 @@ export function useCamera(onError?: (errorMessage: string) => void) {
       const msg = "Camera permission denied or camera not found.";
       setError(msg);
       setIsActive(false);
-      onError?.(msg);
+      onErrorRef.current?.(msg);
     }
-  }, [stopCamera, onError]);
+  }, [stopCamera]);
 
   // Stop camera when backgrounded or tab hidden (AGENTS.md rule)
   useEffect(() => {
@@ -80,7 +100,6 @@ export function useCamera(onError?: (errorMessage: string) => void) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      stopCamera();
     };
   }, [stopCamera]);
 
