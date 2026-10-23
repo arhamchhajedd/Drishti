@@ -113,9 +113,15 @@ node scripts/benchmark.mjs
 - **Target Sizes:** Dominant full-screen pause/resume touch area (>64px, covering 100dvh), minimum 48px on all control pills.
 - **Screen Reader Support:** Full TalkBack (Android) and VoiceOver (iOS) hierarchy with live regions (`aria-live="polite"` for scene status, `aria-live="assertive"` for hazards).
 - **Reduced Motion:** Fully complies with `@media (prefers-reduced-motion: reduce)`.
-- **Documentation:**
-  - [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): Conformance breakdown and assistive tech testing notes.
-  - [docs/TESTING.md](docs/TESTING.md): Eyes-closed manual phone test checklist.
-  - [docs/DEMO.md](docs/DEMO.md): 3-minute judging demo script and pitch summary.
-  - [SECURITY.md](SECURITY.md): Threat model, threat matrix, and zero-retention privacy policy.
+- **Documentation Index:**
+  - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): Two-layer system architecture, data flow diagrams, and latency budgets.
+  - [docs/PROBLEM_STATEMENT.md](docs/PROBLEM_STATEMENT.md): Hackathon challenge alignment and requirement-to-evidence matrix.
+  - [docs/API.md](docs/API.md): Hardened `/api/describe` specification, Zod schemas, and rate limiting.
+  - [docs/ETHICS_AND_SAFETY.md](docs/ETHICS_AND_SAFETY.md): Responsible AI principles, fail-closed boundaries, and non-profiling rules.
+  - [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): WCAG 2.2 AAA conformance breakdown and assistive tech testing.
+  - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): Google Cloud Run containerization and Vercel production deployment guide.
+  - [docs/TESTING.md](docs/TESTING.md): Eyes-closed manual phone test checklist and device matrix.
+  - [docs/DEMO.md](docs/DEMO.md): 3-minute judging demo script and pitch flow.
+  - [SECURITY.md](SECURITY.md): Threat model, attack tree, and zero-retention privacy policy.
   - [DISCLOSURE.md](DISCLOSURE.md): Third-party dependency licenses and original work statement.
+  - [CONTRIBUTING.md](CONTRIBUTING.md): Engineering quality standards, code review checklist, and conventional commits.
