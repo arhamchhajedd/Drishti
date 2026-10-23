@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { debugLogger } from "@/lib/debug";
+import { playFallbackBeep } from "@/lib/audio";
 
 interface UseAutoScanProps {
   isActive: boolean;
   mode?: "scene" | "text";
   captureFrame: () => string | null;
-  speak: (text: string, interrupt?: boolean, onEnd?: () => void) => void;
+  speak: (text: string, interrupt?: boolean) => Promise<boolean>;
   vibrate: (pattern: "tap" | "success" | "hazard") => void;
 }
 
 const SESSION_REQUEST_CAP = 120;
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+const NEVER_SILENT_INTERVAL_MS = 10_000;
 
 export function useAutoScan({
   isActive,
@@ -27,9 +30,9 @@ export function useAutoScan({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runnerRef = useRef<(() => void) | null>(null);
-  const lastOutputRef = useRef<string>("");
   const requestCountRef = useRef(0);
-  const backoffDelayRef = useRef(600);
+  const consecutiveErrorsRef = useRef(0);
+  const lastSpokenTimestampRef = useRef<number>(Date.now());
 
   const clearScanTimer = () => {
     if (timerRef.current) {
@@ -38,10 +41,15 @@ export function useAutoScan({
     }
   };
 
+  const scheduleNext = useCallback((delayMs: number) => {
+    clearScanTimer();
+    timerRef.current = setTimeout(() => {
+      if (runnerRef.current) runnerRef.current();
+    }, delayMs);
+  }, []);
+
   const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-    }
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     inactivityTimerRef.current = setTimeout(() => {
       if (isMountedRef.current && isScanning) {
         setIsScanning(false);
@@ -50,15 +58,6 @@ export function useAutoScan({
       }
     }, INACTIVITY_TIMEOUT_MS);
   }, [isScanning, speak]);
-
-  const scheduleNext = useCallback((delayMs: number) => {
-    clearScanTimer();
-    timerRef.current = setTimeout(() => {
-      if (runnerRef.current) {
-        runnerRef.current();
-      }
-    }, delayMs);
-  }, []);
 
   const processNextFrame = useCallback(async () => {
     if (!isMountedRef.current || !isActive || isProcessing || !isScanning) return;
@@ -71,22 +70,33 @@ export function useAutoScan({
     }
 
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      speak("You are offline. Please check your internet connection.", false);
+      debugLogger.log("Network:Offline", "Navigator reported offline");
+      await speak("You are offline. Please check your internet connection.");
       scheduleNext(4000);
       return;
     }
 
+    // Never silent rule: If 10s passed with no speech, announce status
+    if (Date.now() - lastSpokenTimestampRef.current > NEVER_SILENT_INTERVAL_MS) {
+      debugLogger.log("Scan:NeverSilent", "7. Decision: 10s silent timeout reached, speaking reminder");
+      lastSpokenTimestampRef.current = Date.now();
+      await speak("Nothing clear ahead. Please slowly re-aim.");
+    }
+
     const imageBase64 = captureFrame();
     if (!imageBase64) {
-      scheduleNext(300);
+      debugLogger.log("Camera:FrameWait", "Video not ready or frame empty, retrying in 250ms");
+      scheduleNext(250);
       return;
     }
 
     setIsProcessing(true);
     requestCountRef.current += 1;
 
+    let nextDelayMs = 350;
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), 8500);
+    const timeoutId = setTimeout(() => abortController.abort(), 7000);
+    const fetchStart = Date.now();
 
     try {
       const res = await fetch("/api/describe", {
@@ -96,57 +106,69 @@ export function useAutoScan({
         signal: abortController.signal,
       });
 
+      const latencyMs = Date.now() - fetchStart;
+      debugLogger.log("API:Response", `5. /api/describe HTTP ${res.status}`, { latencyMs, status: res.status });
+
       if (!res.ok) {
+        consecutiveErrorsRef.current += 1;
         if (res.status === 429) {
-          speak("Server busy. Pausing briefly.", false);
-          backoffDelayRef.current = Math.min(6000, backoffDelayRef.current * 1.5);
-          scheduleNext(backoffDelayRef.current);
-          return;
+          nextDelayMs = 3000;
+          await speak("Server busy. Pausing briefly.");
+        } else if (res.status === 504) {
+          nextDelayMs = 2000;
+          await speak("Vision request timed out. Retrying.");
+        } else {
+          nextDelayMs = 2500;
+          if (consecutiveErrorsRef.current >= 2) {
+            await speak("Service problem, still trying.");
+            playFallbackBeep(440, 150);
+          }
         }
-        if (res.status === 504) {
-          speak("Vision request timed out. Retrying.", false);
-          backoffDelayRef.current = Math.min(6000, backoffDelayRef.current * 1.5);
-          scheduleNext(backoffDelayRef.current);
-          return;
-        }
-        throw new Error("Request failed");
+        return;
       }
 
+      consecutiveErrorsRef.current = 0;
       const data = await res.json();
+      debugLogger.log("API:Parsed", "6. Response parsed", {
+        confidence: data.confidence,
+        hazards: data.hazards?.length || 0,
+        objects: data.objects?.length || 0,
+      });
+
       const output = data.spoken_summary?.trim() || "Scene clear.";
       const hasHazards = Array.isArray(data.hazards) && data.hazards.length > 0;
 
       if (isMountedRef.current) {
         setResultText(output);
         resetInactivityTimer();
-        backoffDelayRef.current = 400;
+        vibrate(hasHazards ? "hazard" : "success");
 
-        if (hasHazards) {
-          vibrate("hazard");
-        } else {
-          vibrate("success");
-        }
-
-        lastOutputRef.current = output;
-
-        speak(output, true, () => {
-          if (isMountedRef.current && isScanning) {
-            scheduleNext(300);
-          }
-        });
+        lastSpokenTimestampRef.current = Date.now();
+        debugLogger.log("Scan:Decision", `7. Decision: spoken (${output.slice(0, 30)}...)`);
+        debugLogger.log("Speech:Calling", `8. speak() called for: "${output.slice(0, 30)}..."`);
+        await speak(output, true);
+        debugLogger.log("Speech:Finished", "8. speak() resolved");
+        nextDelayMs = 300;
       }
-    } catch {
-      if (isMountedRef.current && isScanning) {
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          speak("You are offline.", false);
-        }
-        backoffDelayRef.current = Math.min(5000, backoffDelayRef.current * 1.5);
-        scheduleNext(backoffDelayRef.current);
+    } catch (err) {
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      debugLogger.log("API:Exception", isAbort ? "Request timed out" : String(err));
+      consecutiveErrorsRef.current += 1;
+      nextDelayMs = 2000;
+
+      if (isAbort) {
+        await speak("Vision request timed out.");
+      } else if (consecutiveErrorsRef.current >= 2) {
+        await speak("Service problem, still trying.");
+        playFallbackBeep(440, 150);
       }
     } finally {
       clearTimeout(timeoutId);
       if (isMountedRef.current) {
         setIsProcessing(false);
+        if (isScanning) {
+          scheduleNext(nextDelayMs);
+        }
       }
     }
   }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer]);
@@ -158,7 +180,7 @@ export function useAutoScan({
   useEffect(() => {
     isMountedRef.current = true;
     if (isActive && isScanning && !isProcessing) {
-      scheduleNext(200);
+      scheduleNext(150);
       resetInactivityTimer();
     }
     return () => {
@@ -167,21 +189,10 @@ export function useAutoScan({
     };
   }, [isActive, isScanning, isProcessing, scheduleNext, resetInactivityTimer]);
 
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      clearScanTimer();
-      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    };
-  }, []);
-
   const toggleScanning = useCallback(() => {
     clearScanTimer();
-    if (requestCountRef.current >= SESSION_REQUEST_CAP) {
-      requestCountRef.current = 0;
-    }
+    if (requestCountRef.current >= SESSION_REQUEST_CAP) requestCountRef.current = 0;
     resetInactivityTimer();
-
     setIsScanning((prev) => {
       const next = !prev;
       vibrate("tap");
@@ -190,10 +201,5 @@ export function useAutoScan({
     });
   }, [speak, vibrate, resetInactivityTimer]);
 
-  return {
-    isScanning,
-    isProcessing,
-    resultText,
-    toggleScanning,
-  };
+  return { isScanning, isProcessing, resultText, toggleScanning };
 }
