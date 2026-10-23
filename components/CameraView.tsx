@@ -6,6 +6,7 @@ import { useSpeech } from "@/hooks/useSpeech";
 import { useVibration } from "@/hooks/useVibration";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { useMotionDetector } from "@/hooks/useMotionDetector";
 import { CameraTopBar, Mode } from "./CameraTopBar";
 import { CameraResultCard } from "./CameraResultCard";
 
@@ -17,9 +18,19 @@ export default function CameraView({ onBack }: CameraViewProps) {
   const { speak, stop: stopSpeech, repeatLast } = useSpeech();
   const { videoRef, isActive, error, hasTorch, isTorchOn, startCamera, stopCamera, captureFrame, toggleTorch } =
     useCamera((errMsg) => speak(errMsg, true, undefined, "hazard"));
-  const { vibrate } = useVibration();
+  const { vibrate, vibrateDirection } = useVibration();
 
   const [mode, setMode] = useState<Mode>("scene");
+
+  // Instant on-device layer (<1s) for motion, direction, and approaching obstacles
+  const { consumeSceneChanged } = useMotionDetector({
+    videoRef,
+    isActive,
+    onInstantWarning: (dir, isUrgent, text) => {
+      vibrateDirection(dir, isUrgent ? "urgent" : "normal");
+      speak(text, true, undefined, "hazard");
+    },
+  });
 
   const { isScanning, isProcessing, resultText, toggleScanning } = useAutoScan({
     isActive,
@@ -27,9 +38,9 @@ export default function CameraView({ onBack }: CameraViewProps) {
     captureFrame,
     speak,
     vibrate,
+    consumeSceneChanged,
   });
 
-  // Screen Wake Lock: keeps display awake during hands-free scanning
   useWakeLock(isActive && isScanning);
 
   useEffect(() => {

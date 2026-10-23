@@ -10,6 +10,7 @@ interface UseAutoScanProps {
   captureFrame: () => string | null;
   speak: (text: string, interrupt?: boolean, onEnd?: () => void, priority?: SpeechPriority) => void;
   vibrate: (pattern: "tap" | "success" | "hazard") => void;
+  consumeSceneChanged?: () => boolean;
 }
 
 const SESSION_REQUEST_CAP = 120;
@@ -21,6 +22,7 @@ export function useAutoScan({
   captureFrame,
   speak,
   vibrate,
+  consumeSceneChanged,
 }: UseAutoScanProps) {
   const [isScanning, setIsScanning] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,6 +33,7 @@ export function useAutoScan({
   const runnerRef = useRef<(() => void) | null>(null);
   const lastOutputRef = useRef<string>("");
   const requestCountRef = useRef(0);
+  const backoffDelayRef = useRef(600);
 
   const clearScanTimer = () => {
     if (timerRef.current) {
@@ -77,6 +80,12 @@ export function useAutoScan({
       return;
     }
 
+    // Scene-change gating: In scene mode, only send to Gemini if motion layer detected a change
+    if (mode === "scene" && consumeSceneChanged && !consumeSceneChanged()) {
+      scheduleNext(1200);
+      return;
+    }
+
     const imageBase64 = captureFrame();
     if (!imageBase64) {
       scheduleNext(300);
@@ -96,12 +105,14 @@ export function useAutoScan({
       if (!res.ok) {
         if (res.status === 429) {
           speak("Server busy. Pausing briefly.", false);
-          scheduleNext(4000);
+          backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 2);
+          scheduleNext(backoffDelayRef.current);
           return;
         }
         if (res.status === 504) {
           speak("Vision request timed out. Retrying.", false);
-          scheduleNext(3000);
+          backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 1.5);
+          scheduleNext(backoffDelayRef.current);
           return;
         }
         throw new Error("Request failed");
@@ -114,6 +125,7 @@ export function useAutoScan({
       if (isMountedRef.current) {
         setResultText(output);
         resetInactivityTimer();
+        backoffDelayRef.current = 600; // Reset backoff on success
 
         if (hasHazards) {
           vibrate("hazard");
@@ -144,14 +156,15 @@ export function useAutoScan({
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           speak("You are offline.", false, undefined, "hazard");
         }
-        scheduleNext(3000);
+        backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 1.8);
+        scheduleNext(backoffDelayRef.current);
       }
     } finally {
       if (isMountedRef.current) {
         setIsProcessing(false);
       }
     }
-  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer]);
+  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer, consumeSceneChanged]);
 
   useEffect(() => {
     runnerRef.current = processNextFrame;
