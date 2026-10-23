@@ -11,6 +11,9 @@ interface UseAutoScanProps {
   vibrate: (pattern: "tap" | "success" | "hazard") => void;
 }
 
+const SESSION_REQUEST_CAP = 120; // Guardrail to prevent endless quota consumption
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes inactivity auto-pause
+
 export function useAutoScan({
   isActive,
   mode,
@@ -23,8 +26,10 @@ export function useAutoScan({
   const [resultText, setResultText] = useState("");
   const isMountedRef = useRef(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runnerRef = useRef<(() => void) | null>(null);
   const lastOutputRef = useRef<string>("");
+  const requestCountRef = useRef(0);
 
   const clearScanTimer = () => {
     if (timerRef.current) {
@@ -32,6 +37,19 @@ export function useAutoScan({
       timerRef.current = null;
     }
   };
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    inactivityTimerRef.current = setTimeout(() => {
+      if (isMountedRef.current && isScanning) {
+        setIsScanning(false);
+        clearScanTimer();
+        speak("Scanning paused due to inactivity. Tap anywhere to resume.");
+      }
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [isScanning, speak]);
 
   const scheduleNext = useCallback((delayMs: number) => {
     clearScanTimer();
@@ -43,7 +61,15 @@ export function useAutoScan({
   }, []);
 
   const processNextFrame = useCallback(async () => {
-    if (!isMountedRef.current || !isActive || isProcessing) return;
+    if (!isMountedRef.current || !isActive || isProcessing || !isScanning) return;
+
+    // Check session request limit
+    if (requestCountRef.current >= SESSION_REQUEST_CAP) {
+      setIsScanning(false);
+      clearScanTimer();
+      speak("Session limit reached. Tap anywhere to continue scanning.");
+      return;
+    }
 
     const imageBase64 = captureFrame();
     if (!imageBase64) {
@@ -52,6 +78,7 @@ export function useAutoScan({
     }
 
     setIsProcessing(true);
+    requestCountRef.current += 1;
 
     try {
       const res = await fetch("/api/describe", {
@@ -68,8 +95,8 @@ export function useAutoScan({
 
       if (isMountedRef.current) {
         setResultText(output);
+        resetInactivityTimer();
 
-        // Alert user via distinct vibration
         if (hasHazards) {
           vibrate("hazard");
         } else {
@@ -80,13 +107,10 @@ export function useAutoScan({
         lastOutputRef.current = output;
 
         if (isDuplicate) {
-          // If scene is unchanged, wait quietly for 2.5s before taking next snapshot
           scheduleNext(2500);
         } else {
-          // Live speaking: Speak immediately with crisp tempo
           speak(output, true, () => {
             if (isMountedRef.current && isScanning) {
-              // Rapid sequential cadence for blind live navigation (600ms gap)
               scheduleNext(600);
             }
           });
@@ -101,7 +125,7 @@ export function useAutoScan({
         setIsProcessing(false);
       }
     }
-  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext]);
+  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer]);
 
   useEffect(() => {
     runnerRef.current = processNextFrame;
@@ -111,28 +135,36 @@ export function useAutoScan({
     isMountedRef.current = true;
     if (isActive && isScanning && !isProcessing) {
       scheduleNext(150);
+      resetInactivityTimer();
     }
     return () => {
       clearScanTimer();
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     };
-  }, [isActive, isScanning, isProcessing, scheduleNext]);
+  }, [isActive, isScanning, isProcessing, scheduleNext, resetInactivityTimer]);
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
       clearScanTimer();
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     };
   }, []);
 
   const toggleScanning = useCallback(() => {
     clearScanTimer();
+    if (requestCountRef.current >= SESSION_REQUEST_CAP) {
+      requestCountRef.current = 0; // Reset session budget on manual tap
+    }
+    resetInactivityTimer();
+
     setIsScanning((prev) => {
       const next = !prev;
       vibrate("tap");
       speak(next ? "Scanning resumed." : "Scanning paused.");
       return next;
     });
-  }, [speak, vibrate]);
+  }, [speak, vibrate, resetInactivityTimer]);
 
   return {
     isScanning,

@@ -5,6 +5,7 @@ import { useCamera } from "@/hooks/useCamera";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVibration } from "@/hooks/useVibration";
 import { useAutoScan } from "@/hooks/useAutoScan";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { CameraTopBar, Mode } from "./CameraTopBar";
 import { CameraResultCard } from "./CameraResultCard";
 
@@ -28,6 +29,9 @@ export default function CameraView({ onBack }: CameraViewProps) {
     vibrate,
   });
 
+  // Screen Wake Lock: keeps display awake during hands-free scanning
+  useWakeLock(isActive && isScanning);
+
   useEffect(() => {
     startCamera();
     vibrate("success");
@@ -45,22 +49,29 @@ export default function CameraView({ onBack }: CameraViewProps) {
   };
 
   return (
-    <div className="relative flex flex-col h-[100dvh] w-full bg-black text-white overflow-hidden select-none">
-      <CameraTopBar
-        mode={mode}
-        hasTorch={hasTorch}
-        isTorchOn={isTorchOn}
-        onBack={onBack}
-        onToggleMode={handleModeChange}
-        onToggleTorch={toggleTorch}
-      />
+    <div
+      onClick={toggleScanning}
+      className="relative flex flex-col h-[100dvh] w-full bg-black text-white overflow-hidden select-none cursor-pointer"
+      role="region"
+      aria-label="Drishti Live Camera View. Tap anywhere to pause or resume scanning."
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <CameraTopBar
+          mode={mode}
+          hasTorch={hasTorch}
+          isTorchOn={isTorchOn}
+          onBack={onBack}
+          onToggleMode={handleModeChange}
+          onToggleTorch={toggleTorch}
+        />
+      </div>
 
-      <div className="relative flex-1 w-full h-full bg-black flex items-center justify-center">
+      <div className="relative flex-1 w-full h-full bg-black flex items-center justify-center pointer-events-none">
         <video ref={videoRef} playsInline autoPlay muted className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-10 border border-white/15 rounded-3xl pointer-events-none" aria-hidden="true" />
 
         {error && (
-          <div className="absolute inset-6 bg-black/90 p-6 rounded-3xl border border-white/20 flex flex-col items-center justify-center text-center gap-4 z-30">
+          <div className="absolute inset-6 bg-black/90 p-6 rounded-3xl border border-white/20 flex flex-col items-center justify-center text-center gap-4 z-30 pointer-events-auto">
             <p className="text-sm font-medium text-zinc-300">{error}</p>
             <button onClick={startCamera} className="px-6 py-3 bg-white text-black font-semibold rounded-full min-h-[48px]">
               Enable Camera
@@ -69,13 +80,12 @@ export default function CameraView({ onBack }: CameraViewProps) {
         )}
       </div>
 
-      <CameraResultCard mode={mode} resultText={resultText} onRepeat={repeatLast} />
+      <div onClick={(e) => e.stopPropagation()}>
+        <CameraResultCard mode={mode} resultText={resultText} onRepeat={repeatLast} />
+      </div>
 
-      {/* Apple Minimal Shutter & Pause/Resume Pill */}
-      <footer className="absolute bottom-0 inset-x-0 p-6 pb-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-2 z-20">
-        <button
-          onClick={toggleScanning}
-          disabled={!isActive}
+      <footer className="absolute bottom-0 inset-x-0 p-6 pb-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-2 z-20 pointer-events-none">
+        <div
           className={`w-full max-w-md py-6 px-8 rounded-full font-semibold text-lg transition-all min-h-[76px] flex items-center justify-center gap-3 shadow-2xl active:scale-[0.98] ${
             !isScanning
               ? "bg-zinc-800 text-zinc-200 border border-white/20"
@@ -83,7 +93,6 @@ export default function CameraView({ onBack }: CameraViewProps) {
               ? "bg-white/90 text-black shadow-[0_0_30px_rgba(255,255,255,0.2)]"
               : "bg-white text-black hover:bg-zinc-200"
           }`}
-          aria-label={isScanning ? "Pause continuous scanning" : "Resume continuous scanning"}
         >
           {isScanning ? (
             <span className="w-2.5 h-2.5 rounded-full bg-black animate-ping" />
@@ -92,12 +101,12 @@ export default function CameraView({ onBack }: CameraViewProps) {
           )}
           <span>
             {!isScanning
-              ? "Paused · Tap to Resume"
+              ? "Paused · Tap Anywhere to Resume"
               : isProcessing
               ? "Analyzing Scene..."
-              : "Scanning Live · Tap to Pause"}
+              : "Scanning Live · Tap Anywhere to Pause"}
           </span>
-        </button>
+        </div>
       </footer>
     </div>
   );
