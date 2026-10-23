@@ -25,7 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. IP Rate Limiting
-  const rawIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const rawIp =
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "127.0.0.1";
   const rateLimit = checkRateLimit(rawIp);
   if (!rateLimit.allowed) {
     return NextResponse.json(

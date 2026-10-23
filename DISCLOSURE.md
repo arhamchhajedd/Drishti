@@ -18,7 +18,7 @@ Disclosure of all third-party libraries, models, and APIs used in Drishti AI per
 - **Vibration API (`navigator.vibrate`)**: Provides haptic confirmation and obstacle alerts.
 
 ## AI Models
-- **Google Gemini 2.5 Flash**: Server-side vision processing for low-latency scene description and text reading.
+- **Google Gemini 3.5 Flash Lite**: Server-side vision processing for low-latency scene description and text reading.
 
 ## Audit & Security Notes
 - `npm audit` reports a high severity advisory for `braces` within `eslint-config-next` (dev-only linting dependency). This does not affect client or production runtime security.

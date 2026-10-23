@@ -40,11 +40,17 @@ export function verifyOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
 
-  if (!origin || !host) return true; // Direct same-origin or local curl
+  if (!host) return false;
+
+  const source = origin || request.headers.get("referer");
+  if (!source) {
+    // In production, browser fetch(POST) always includes Origin or Referer
+    return process.env.NODE_ENV !== "production";
+  }
 
   try {
-    const originHost = new URL(origin).host;
-    return originHost === host;
+    const sourceHost = new URL(source).host;
+    return sourceHost === host;
   } catch {
     return false;
   }
