@@ -23,13 +23,17 @@ export function useSpeech() {
   }, []);
 
   const speak = useCallback(
-    (text: string, interrupt: boolean = true) => {
+    (text: string, interrupt: boolean = true, onEnd?: () => void) => {
       if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        onEnd?.();
         return;
       }
 
       const cleanText = sanitizeSpokenText(text);
-      if (!cleanText) return;
+      if (!cleanText) {
+        onEnd?.();
+        return;
+      }
 
       if (interrupt) {
         window.speechSynthesis.cancel();
@@ -42,8 +46,14 @@ export function useSpeech() {
       utterance.lang = "en-US";
 
       utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+      };
 
       window.speechSynthesis.speak(utterance);
     },
