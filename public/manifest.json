@@ -1,0 +1,20 @@
+{
+  "name": "Drishti AI — Accessibility Vision Assistant",
+  "short_name": "Drishti AI",
+  "description": "AI-powered vision assistant for blind and visually impaired people.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["accessibility", "utilities"]
+}
