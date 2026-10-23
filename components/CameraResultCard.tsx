@@ -27,7 +27,7 @@ export function CameraResultCard({
         </span>
         <button
           onClick={onRepeat}
-          className="text-xs text-white/90 hover:text-white font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 min-h-[44px]"
+          className="text-xs text-white/90 hover:text-white font-medium flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 min-h-[48px] focus:ring-2 focus:ring-white focus:outline-none"
           aria-label="Repeat description aloud"
         >
           <span>↺</span>

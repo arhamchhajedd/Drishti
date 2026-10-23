@@ -37,7 +37,7 @@ export function CameraTopBar({
       <div className="flex items-center bg-black/60 backdrop-blur-xl p-1 rounded-full border border-white/20">
         <button
           onClick={() => onToggleMode("scene")}
-          className={`px-4 py-2 rounded-full text-xs font-semibold transition-all min-h-[44px] ${
+          className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all min-h-[48px] focus:ring-2 focus:ring-white focus:outline-none ${
             mode === "scene"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white"
@@ -49,7 +49,7 @@ export function CameraTopBar({
         </button>
         <button
           onClick={() => onToggleMode("text")}
-          className={`px-4 py-2 rounded-full text-xs font-semibold transition-all min-h-[44px] ${
+          className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all min-h-[48px] focus:ring-2 focus:ring-white focus:outline-none ${
             mode === "text"
               ? "bg-white text-black shadow-lg"
               : "text-zinc-400 hover:text-white"
