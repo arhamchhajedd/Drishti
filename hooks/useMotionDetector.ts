@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { Direction } from "./useVibration";
-import { debugLogger } from "@/lib/debug";
 
 interface UseMotionDetectorProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -97,7 +96,6 @@ export function useMotionDetector({
     // Detect fast approaching obstacle ahead
     if (aheadRatio > LOOM_THRESHOLD) {
       lastAlertTimeRef.current = now;
-      debugLogger.log("Detector:Alert", "9. Alert: Approaching obstacle ahead (ahead loom)", { aheadRatio });
       onInstantWarning?.("ahead", true, "Caution. Approaching obstacle ahead.");
       return;
     }
@@ -106,11 +104,9 @@ export function useMotionDetector({
     const sideThreshold = centerPixels * 0.45;
     if (diffLeft > sideThreshold && diffLeft > diffRight * 1.5) {
       lastAlertTimeRef.current = now;
-      debugLogger.log("Detector:Alert", "9. Alert: Movement on left", { diffLeft });
       onInstantWarning?.("left", false, "Movement on left.");
     } else if (diffRight > sideThreshold && diffRight > diffLeft * 1.5) {
       lastAlertTimeRef.current = now;
-      debugLogger.log("Detector:Alert", "9. Alert: Movement on right", { diffRight });
       onInstantWarning?.("right", false, "Movement on right.");
     }
   }, [videoRef, onInstantWarning]);
@@ -121,7 +117,7 @@ export function useMotionDetector({
       return;
     }
 
-    debugLogger.log("Detector:Ready", "9. On-device detector: active (CPU, 6.6 FPS, luminance grid)");
+    // Run on-device loop at ~6.6 FPS (every 150ms)
     const interval = setInterval(analyzeFrame, 150);
     return () => clearInterval(interval);
   }, [isActive, analyzeFrame]);

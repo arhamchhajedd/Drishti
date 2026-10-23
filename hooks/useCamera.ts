@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { debugLogger } from "@/lib/debug";
 
 interface TorchCapabilities extends MediaTrackCapabilities {
   torch?: boolean;
@@ -66,11 +65,6 @@ export function useCamera(onError?: (errorMessage: string) => void) {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play();
-        debugLogger.log("Camera:Active", "2. Camera stream active", {
-          videoWidth: videoRef.current.videoWidth,
-          videoHeight: videoRef.current.videoHeight,
-          readyState: videoRef.current.readyState,
-        });
       }
 
       const videoTrack = mediaStream.getVideoTracks()[0];
@@ -136,10 +130,7 @@ export function useCamera(onError?: (errorMessage: string) => void) {
     if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, width, height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-    const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
-    debugLogger.log("Camera:FrameCaptured", `4. Frame captured (${sizeKb} KB)`, { sizeKb, width, height });
-    return dataUrl;
+    return canvas.toDataURL("image/jpeg", 0.7);
   }, []);
 
   // Toggle torch without 'any'

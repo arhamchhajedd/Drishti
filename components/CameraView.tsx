@@ -9,7 +9,6 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { useMotionDetector } from "@/hooks/useMotionDetector";
 import { CameraTopBar } from "./CameraTopBar";
 import { CameraResultCard } from "./CameraResultCard";
-import { DebugPanel } from "./DebugPanel";
 
 interface CameraViewProps {
   onBack: () => void;
@@ -86,8 +85,6 @@ export default function CameraView({ onBack }: CameraViewProps) {
       <div onClick={(e) => e.stopPropagation()}>
         <CameraResultCard resultText={resultText} onRepeat={repeatLast} />
       </div>
-
-      <DebugPanel />
 
       <footer className="absolute bottom-0 inset-x-0 p-6 pb-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-2 z-20 pointer-events-none">
         <div
