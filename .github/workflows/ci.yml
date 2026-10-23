@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, polish]
+  pull_request:
+    branches: [main, polish]
+
+jobs:
+  verify:
+    name: Lint, Typecheck, Test, and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run verification checks
+        run: npm run check
+        env:
+          GEMINI_API_KEY: "dummy-key-for-build-and-tests"
+          GEMINI_MODEL: "gemini-3.5-flash-lite"
+          GEMINI_THINKING_LEVEL: "MINIMAL"
+          RATE_LIMIT_SALT: "ci-test-salt"

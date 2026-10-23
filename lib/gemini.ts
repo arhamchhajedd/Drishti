@@ -18,7 +18,7 @@ Rules:
 7. Medicine, expiry dates, dosages, allergens: state them only if clearly legible. Otherwise say the text is unclear and suggest asking someone.`;
 
 const SCENE_PROMPT =
-  "Describe what is in front of the user right now for safe orientation. Hazards first, then key objects and any clearly visible text or signs.";
+  "Identify what is directly in front of the user right now. Name the closest objects and hazards immediately. Be fast, direct, and concise (under 15 words).";
 
 const TEXT_PROMPT =
   "Read the clearly visible text aloud in natural reading order. Put the text in spoken_summary (up to 40 words) and the full text in text. If there is no readable text, say \"No text found.\"";
@@ -96,10 +96,7 @@ export async function analyzeImageWithGemini(
         // Thinking tokens count against the output cap; minimal thinking keeps replies fast and complete.
         thinkingConfig: { thinkingLevel: ThinkingLevel[config.GEMINI_THINKING_LEVEL] },
         // Low resolution is enough for scenes and much faster; text needs full detail.
-        mediaResolution:
-          mode === "scene"
-            ? MediaResolution.MEDIA_RESOLUTION_LOW
-            : MediaResolution.MEDIA_RESOLUTION_MEDIUM,
+        mediaResolution: MediaResolution.MEDIA_RESOLUTION_MEDIUM,
         maxOutputTokens: 1024,
         temperature: 0.2,
         abortSignal: controller.signal,

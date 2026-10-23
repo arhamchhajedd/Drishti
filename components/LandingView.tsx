@@ -16,7 +16,7 @@ export default function LandingView({ onStart }: LandingViewProps) {
 
   const handleStart = () => {
     vibrate("success");
-    stop();
+    speak("Vision starting.");
     onStart();
   };
 

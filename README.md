@@ -6,6 +6,41 @@ Drishti AI is a mobile-first accessibility Progressive Web Application (PWA). It
 
 ---
 
+## The Problem & Target User
+
+Blind and visually impaired individuals navigate physical spaces designed almost exclusively for sighted people. While traditional mobility tools like white canes detect immediate ground obstacles, they cannot read signs, identify approaching objects from a distance, or describe room layouts. Drishti provides an autonomous, hands-free auditory and haptic stream that empowers visually impaired users to perceive and orient themselves in real-world environments with confidence.
+
+---
+
+## Problem Statement Alignment
+
+| Problem Statement Phrase | Implementation in Drishti AI | Verifiable Code / Evidence |
+|---|---|---|
+| **Intelligent Reasoning** | Analyzes multimodal visual scenes to prioritize safety hazards first (stairs, vehicles, obstacles), evaluates confidence, and transcribes visible text. | `lib/gemini.ts` (system prompt with hazard prioritization, strict JSON response schema, confidence estimation). |
+| **Autonomy** | Fully hands-free perceive-decide-act loop. Exactly one touch on "Open Camera" begins continuous vision assistance without requiring further taps or prompts. | `components/CameraView.tsx`, `hooks/useAutoScan.ts` (continuous background frame acquisition and speech queue). |
+| **Data-Driven Decisions** | Real-time pixel luminance matrix analysis (48x36 grid) calculates motion vectors, approaching loom ratios, and triggers directional haptic feedback. | `hooks/useMotionDetector.ts`, `hooks/useVibration.ts` (instant sub-150ms local warning layer). |
+| **Secure Implementation** | Binary magic bytes verification (`FF D8 FF`, `RIFF...WEBP`), strict Zod schemas rejecting unknown fields, origin verification, and prompt-injection defense. | `lib/security.ts`, `lib/sanitize.ts`, `tests/security.test.ts`, `tests/injection.test.ts`, `SECURITY.md`. |
+| **Measurable Efficiency** | Client-side 640px JPEG compression reduces bandwidth by 99.8% vs raw frames. Low output token usage keeps cost to ~$0.028/hour. | `scripts/benchmark.mjs`, real benchmark output table below. |
+| **Reliable End-to-End Performance** | Fail-closed error handling: graceful low-light admission, network offline alerts, watchdog timers for mobile browser speech bugs, and screen wake lock. | `hooks/useSpeech.ts`, `hooks/useWakeLock.ts`, `docs/TESTING.md`. |
+
+---
+
+## Beyond a Basic Chatbot: What Makes Drishti Original
+
+Traditional AI chatbots require users to type or record audio, send a single prompt, and wait for a conversational text response. Drishti is an **autonomous sensory vision agent**:
+1. **Continuous Hands-Free Feedback Loop:** Once opened, Drishti continuously samples frames, detects movement, and speaks environmental changes without asking the user for commands.
+2. **Two-Layer Perception Architecture:** Urgent physical safety warnings (looming obstacles) are processed on-device in under 150ms with zero network dependency, while cloud multimodal vision handles high-level spatial understanding.
+3. **No Image Storage or Chat History:** Unlike conversational chatbots that save message histories, Drishti treats images as strictly ephemeral data—processed in memory and discarded immediately to preserve total user privacy.
+
+---
+
+## Google Technologies Used
+
+- **Google Gemini 3.5 Flash Lite (`gemini-3.5-flash-lite`)**: Server-side multimodal vision model used for scene orientation, obstacle recognition, and text transcription. Configured with `ThinkingLevel.MINIMAL` and `MediaResolution.LOW`/`MEDIUM` for low-latency live assistance.
+- **Official `@google/genai` SDK**: Used exclusively server-side (`import "server-only";`) for robust API calls, structured JSON coercion, and strict token budgets.
+
+---
+
 ## Architecture: Two-Layer Vision System
 
 ```
@@ -18,98 +53,69 @@ Drishti AI is a mobile-first accessibility Progressive Web Application (PWA). It
 │  (Sub-second Instant Alert)  │        │  (Deep Scene Description)    │
 ├──────────────────────────────┤        ├──────────────────────────────┤
 │ • 48x36 Canvas Pixel-Diffing │        │ • Client-side 640px JPEG 0.7 │
-│ • 150ms Loop Interval        │        │ • Scene-change gating        │
-│ • Detects: Left / Ahead /    │        │ • Server-side API route      │
-│   Right looming obstacles    │        │ • Gemini 3.5 Flash Lite      │
+│ • 150ms Loop Interval        │        │ • Server-side API route      │
+│ • Detects: Approaching loom  │        │ • Gemini 3.5 Flash Lite      │
 │ • Directional Vibration      │        │ • Strict Zod Schema JSON     │
-│ • Zero Network Overhead      │        │ • Priority Spoken Feedback   │
+│ • Zero Network Overhead      │        │ • Live Spoken Feedback       │
 └──────────────────────────────┘        └──────────────────────────────┘
 ```
 
-1. **Layer 1: On-Device Obstacle & Motion Detection (<150ms)**
-   - Computes grayscale luminance differential across a low-resolution 48x36 grid.
-   - Identifies sudden looming hazards and directional movement (Left, Center, Right).
-   - Triggers directional vibration patterns instantly without network latency.
-
-2. **Layer 2: Cloud Multimodal Analysis (Gemini 3.5 Flash Lite ~2.1s)**
-   - Gated by scene-change detection (avoids redundant cloud calls when the camera is stationary).
-   - Delivers structured orientation: hazards first (stairs, obstacles, wet floor), key objects, and natural text reading.
-   - Text sanitizer cleanses output of URLs, markup, and control codes before speech synthesis.
-
 ---
 
-## Threat Model & Security Posture
+## Empirical Benchmark Results
 
-| Threat | Mitigation | Implementation |
+Measured on October 23, 2026 using `node scripts/benchmark.mjs` against live `gemini-3.5-flash-lite`:
+
+| Metric | Real Measured Value | Evaluation & Source |
 |---|---|---|
-| **Prompt Injection via Images** | Text on signs/packaging treated as untrusted data, never instructions. | Strict system prompt instruction + Zod `.strict()` schema enforcement + `SAFE_FALLBACK`. |
-| **User Privacy & Data Leakage** | Zero persistence. Images processed strictly in-memory and discarded. | No disk/DB/cache storage. `server-only` secrets boundary. |
-| **API Denial-of-Service / Abuse** | Rate limiting per hashed IP + Origin header enforcement. | Sliding window (30 req/min) in `lib/security.ts`. |
-| **Payload Spoofing / Malicious Uploads** | Verify true binary magic bytes (`FF D8 FF` JPEG, `RIFF...WEBP`). | Hard 1MB payload ceiling, reject spoofed MIME types. |
-| **Cross-Site Scripting (XSS) / Clickjacking** | Strict Content Security Policy + Frame denial. | Nonced script execution, `frame-ancestors 'none'`, `X-Frame-Options: DENY`. |
+| **Average Latency** | **1,997 ms** (~2.0 s) | `scripts/benchmark.mjs` (3-run live API test) |
+| **p50 Latency** | **1,436 ms** (~1.4 s) | `scripts/benchmark.mjs` |
+| **p95 Latency** | **3,128 ms** (~3.1 s) | `scripts/benchmark.mjs` |
+| **Local Loom Alert** | **< 150 ms** | Local CPU canvas luminance loop (`useMotionDetector.ts`) |
+| **Client Frame Size** | **8 KB** | Compressed 640px JPEG |
+| **Bandwidth Reduction**| **99.87%** | Compared against raw uncompressed 1080p frame (~6,075 KB) |
+| **Estimated Tokens** | **135 Prompt / 30 Output** | Minimal thinking budget enabled |
+| **Cost per 1,000 Scans**| **$0.0191 USD** (~2 cents) | Based on official Gemini 3.5 Flash Lite pricing |
+| **Cost per Active Hour**| **$0.0287 USD** (~3 cents) | Continuous hands-free active scanning (25 req/min) |
 
 ---
 
-## Real-World Benchmarks
+## Verification & Unified Check Command
 
-Measured on mobile LTE/5G with `gemini-3.5-flash-lite`:
-
-| Mode | Media Resolution | Thinking Level | Avg Latency | Prompt Tokens | Output Tokens |
-|---|---|---|---|---|---|
-| **Scene Orientation** | `LOW` | `MINIMAL` | ~2.1 s | ~120 tokens | ~35 tokens |
-| **Text Reading (OCR)** | `MEDIUM` | `MINIMAL` | ~2.8 s | ~280 tokens | ~85 tokens |
-| **On-Device Loom Alert** | Local 48x36 | None (Local CPU) | **< 150 ms** | 0 | 0 |
-
----
-
-## Setup & Local Development
-
-### Prerequisites
-- Node.js 20+ or 22+
-- Gemini API key from [Google AI Studio](https://aistudio.google.com/)
-
-### 1. Installation
+Run the complete validation suite (lint, typecheck, tests, and build) in a single command:
 ```bash
-git clone https://github.com/arhamchhajedd/Drishti.git
-cd drishti
-npm install
+npm run check
 ```
 
-### 2. Environment Configuration
-Create a `.env.local` file (git-ignored):
-```env
-GEMINI_API_KEY="your-google-ai-studio-api-key"
-GEMINI_MODEL="gemini-3.5-flash-lite"
-GEMINI_THINKING_LEVEL="MINIMAL"
-RATE_LIMIT_SALT="your-random-production-salt"
-```
-
-### 3. Run Development Server
+Individual checks:
 ```bash
-npm run dev
-```
-Open `http://localhost:3000` or open over your local network HTTPS tunnel.
-
-### 4. Verification & Testing
-```bash
-# Run unit tests (Zod schemas, security magic bytes, rate limiter, injection defense)
+# Run 44 automated Vitest tests (security, schemas, route, sanitizer, injection, a11y)
 npm test
 
 # Run TypeScript type check
 npm run typecheck
 
-# Run ESLint validation
+# Run ESLint validation (0 warnings required)
 npm run lint
 
-# Create production build
+# Run Next.js production build
 npm run build
+
+# Run automated efficiency & latency benchmarks
+node scripts/benchmark.mjs
 ```
 
 ---
 
 ## Accessibility Compliance
+
 - **Contrast Ratio:** 21:1 Apple monochrome dark mode (pure `#000000` background, pure `#FFFFFF` typography).
-- **Target Sizes:** Dominant full-screen pause/resume touch area (>64px), minimum 48px on all control pills.
+- **Target Sizes:** Dominant full-screen pause/resume touch area (>64px, covering 100dvh), minimum 48px on all control pills.
 - **Screen Reader Support:** Full TalkBack (Android) and VoiceOver (iOS) hierarchy with live regions (`aria-live="polite"` for scene status, `aria-live="assertive"` for hazards).
 - **Reduced Motion:** Fully complies with `@media (prefers-reduced-motion: reduce)`.
-- **Manual Testing:** See [docs/TESTING.md](docs/TESTING.md) for full eyes-closed testing script.
+- **Documentation:**
+  - [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): Conformance breakdown and assistive tech testing notes.
+  - [docs/TESTING.md](docs/TESTING.md): Eyes-closed manual phone test checklist.
+  - [docs/DEMO.md](docs/DEMO.md): 3-minute judging demo script and pitch summary.
+  - [SECURITY.md](SECURITY.md): Threat model, threat matrix, and zero-retention privacy policy.
+  - [DISCLOSURE.md](DISCLOSURE.md): Third-party dependency licenses and original work statement.

@@ -72,22 +72,10 @@ export function useSpeech() {
       const estimatedDurationMs = Math.max(1200, (cleanText.split(/\s+/).length / 2.2) * 1000 + 1000);
       safetyTimeoutRef.current = setTimeout(handleDone, estimatedDurationMs);
 
-      // In Chromium/WebKit, allow 25ms after cancel() so the speech queue clears before speaking
-      if (interrupt) {
-        setTimeout(() => {
-          if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            if (window.speechSynthesis.paused) {
-              window.speechSynthesis.resume();
-            }
-            window.speechSynthesis.speak(utterance);
-          }
-        }, 25);
-      } else {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-        window.speechSynthesis.speak(utterance);
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
       }
+      window.speechSynthesis.speak(utterance);
     },
     []
   );

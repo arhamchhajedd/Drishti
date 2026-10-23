@@ -123,18 +123,13 @@ export function useAutoScan({
           vibrate("success");
         }
 
-        const isDuplicate = output.toLowerCase() === lastOutputRef.current.toLowerCase();
         lastOutputRef.current = output;
 
-        if (isDuplicate) {
-          scheduleNext(2000);
-        } else {
-          speak(output, true, () => {
-            if (isMountedRef.current && isScanning) {
-              scheduleNext(600);
-            }
-          });
-        }
+        speak(output, true, () => {
+          if (isMountedRef.current && isScanning) {
+            scheduleNext(350);
+          }
+        });
       }
     } catch {
       if (isMountedRef.current && isScanning) {
