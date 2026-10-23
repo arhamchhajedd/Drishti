@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useCamera } from "@/hooks/useCamera";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useVibration } from "@/hooks/useVibration";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useMotionDetector } from "@/hooks/useMotionDetector";
-import { CameraTopBar, Mode } from "./CameraTopBar";
+import { CameraTopBar } from "./CameraTopBar";
 import { CameraResultCard } from "./CameraResultCard";
 
 interface CameraViewProps {
@@ -17,28 +17,27 @@ interface CameraViewProps {
 export default function CameraView({ onBack }: CameraViewProps) {
   const { speak, stop: stopSpeech, repeatLast } = useSpeech();
   const { videoRef, isActive, error, hasTorch, isTorchOn, startCamera, stopCamera, captureFrame, toggleTorch } =
-    useCamera((errMsg) => speak(errMsg, true, undefined, "hazard"));
+    useCamera((errMsg) => speak(errMsg, true));
   const { vibrate, vibrateDirection } = useVibration();
 
-  const [mode, setMode] = useState<Mode>("scene");
-
   // Instant on-device layer (<1s) for motion, direction, and approaching obstacles
-  const { consumeSceneChanged } = useMotionDetector({
+  useMotionDetector({
     videoRef,
     isActive,
     onInstantWarning: (dir, isUrgent, text) => {
       vibrateDirection(dir, isUrgent ? "urgent" : "normal");
-      speak(text, true, undefined, "hazard");
+      if (isUrgent) {
+        speak(text, true);
+      }
     },
   });
 
   const { isScanning, isProcessing, resultText, toggleScanning } = useAutoScan({
     isActive,
-    mode,
+    mode: "scene",
     captureFrame,
     speak,
     vibrate,
-    consumeSceneChanged,
   });
 
   useWakeLock(isActive && isScanning);
@@ -46,33 +45,25 @@ export default function CameraView({ onBack }: CameraViewProps) {
   useEffect(() => {
     startCamera();
     vibrate("success");
-    speak("Ready.");
+    speak("Camera ready.");
     return () => {
       stopCamera();
       stopSpeech();
     };
   }, [startCamera, stopCamera, stopSpeech, speak, vibrate]);
 
-  const handleModeChange = (newMode: Mode) => {
-    vibrate("tap");
-    setMode(newMode);
-    speak(newMode === "scene" ? "Scene description mode." : "Text reading mode.");
-  };
-
   return (
     <div
       onClick={toggleScanning}
       className="relative flex flex-col h-[100dvh] w-full bg-black text-white overflow-hidden select-none cursor-pointer"
       role="region"
-      aria-label="Drishti Live Camera View. Tap anywhere to pause or resume scanning."
+      aria-label="Drishti Live Vision. Tap anywhere to pause or resume."
     >
       <div onClick={(e) => e.stopPropagation()}>
         <CameraTopBar
-          mode={mode}
           hasTorch={hasTorch}
           isTorchOn={isTorchOn}
           onBack={onBack}
-          onToggleMode={handleModeChange}
           onToggleTorch={toggleTorch}
         />
       </div>
@@ -92,7 +83,7 @@ export default function CameraView({ onBack }: CameraViewProps) {
       </div>
 
       <div onClick={(e) => e.stopPropagation()}>
-        <CameraResultCard mode={mode} resultText={resultText} onRepeat={repeatLast} />
+        <CameraResultCard resultText={resultText} onRepeat={repeatLast} />
       </div>
 
       <footer className="absolute bottom-0 inset-x-0 p-6 pb-10 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-2 z-20 pointer-events-none">
@@ -112,10 +103,10 @@ export default function CameraView({ onBack }: CameraViewProps) {
           )}
           <span>
             {!isScanning
-              ? "Paused · Tap Anywhere to Resume"
+              ? "Paused · Tap to Resume"
               : isProcessing
-              ? "Analyzing Scene..."
-              : "Scanning Live · Tap Anywhere to Pause"}
+              ? "Scanning & Speaking..."
+              : "Live Scanning · Tap to Pause"}
           </span>
         </div>
       </footer>

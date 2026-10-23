@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mode } from "@/components/CameraTopBar";
-import { SpeechPriority } from "@/hooks/useSpeech";
 
 interface UseAutoScanProps {
   isActive: boolean;
-  mode: Mode;
+  mode?: "scene" | "text";
   captureFrame: () => string | null;
-  speak: (text: string, interrupt?: boolean, onEnd?: () => void, priority?: SpeechPriority) => void;
+  speak: (text: string, interrupt?: boolean, onEnd?: () => void) => void;
   vibrate: (pattern: "tap" | "success" | "hazard") => void;
-  consumeSceneChanged?: () => boolean;
 }
 
 const SESSION_REQUEST_CAP = 120;
@@ -18,11 +15,10 @@ const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function useAutoScan({
   isActive,
-  mode,
+  mode = "scene",
   captureFrame,
   speak,
   vibrate,
-  consumeSceneChanged,
 }: UseAutoScanProps) {
   const [isScanning, setIsScanning] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -75,14 +71,8 @@ export function useAutoScan({
     }
 
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      speak("You are offline. Please check your internet connection.", false, undefined, "hazard");
+      speak("You are offline. Please check your internet connection.", false);
       scheduleNext(4000);
-      return;
-    }
-
-    // Scene-change gating: In scene mode, only send to Gemini if motion layer detected a change
-    if (mode === "scene" && consumeSceneChanged && !consumeSceneChanged()) {
-      scheduleNext(1200);
       return;
     }
 
@@ -125,7 +115,7 @@ export function useAutoScan({
       if (isMountedRef.current) {
         setResultText(output);
         resetInactivityTimer();
-        backoffDelayRef.current = 600; // Reset backoff on success
+        backoffDelayRef.current = 600;
 
         if (hasHazards) {
           vibrate("hazard");
@@ -137,24 +127,19 @@ export function useAutoScan({
         lastOutputRef.current = output;
 
         if (isDuplicate) {
-          scheduleNext(2500);
+          scheduleNext(2000);
         } else {
-          speak(
-            output,
-            true,
-            () => {
-              if (isMountedRef.current && isScanning) {
-                scheduleNext(600);
-              }
-            },
-            hasHazards ? "hazard" : "normal"
-          );
+          speak(output, true, () => {
+            if (isMountedRef.current && isScanning) {
+              scheduleNext(600);
+            }
+          });
         }
       }
     } catch {
       if (isMountedRef.current && isScanning) {
         if (typeof navigator !== "undefined" && !navigator.onLine) {
-          speak("You are offline.", false, undefined, "hazard");
+          speak("You are offline.", false);
         }
         backoffDelayRef.current = Math.min(10000, backoffDelayRef.current * 1.8);
         scheduleNext(backoffDelayRef.current);
@@ -164,7 +149,7 @@ export function useAutoScan({
         setIsProcessing(false);
       }
     }
-  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer, consumeSceneChanged]);
+  }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext, resetInactivityTimer]);
 
   useEffect(() => {
     runnerRef.current = processNextFrame;
@@ -173,7 +158,7 @@ export function useAutoScan({
   useEffect(() => {
     isMountedRef.current = true;
     if (isActive && isScanning && !isProcessing) {
-      scheduleNext(150);
+      scheduleNext(200);
       resetInactivityTimer();
     }
     return () => {

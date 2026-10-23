@@ -2,23 +2,17 @@
 
 import React from "react";
 
-export type Mode = "scene" | "text";
-
 interface CameraTopBarProps {
-  mode: Mode;
   hasTorch: boolean;
   isTorchOn: boolean;
   onBack: () => void;
-  onToggleMode: (mode: Mode) => void;
   onToggleTorch: () => void;
 }
 
 export function CameraTopBar({
-  mode,
   hasTorch,
   isTorchOn,
   onBack,
-  onToggleMode,
   onToggleTorch,
 }: CameraTopBarProps) {
   return (
@@ -33,39 +27,20 @@ export function CameraTopBar({
         <span>Back</span>
       </button>
 
-      {/* Segmented Mode Control */}
-      <div className="flex items-center bg-black/60 backdrop-blur-xl p-1 rounded-full border border-white/20">
-        <button
-          onClick={() => onToggleMode("scene")}
-          className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all min-h-[48px] focus:ring-2 focus:ring-white focus:outline-none ${
-            mode === "scene"
-              ? "bg-white text-black shadow-lg"
-              : "text-zinc-400 hover:text-white"
-          }`}
-          aria-pressed={mode === "scene"}
-          aria-label="Scene mode"
-        >
-          Scene
-        </button>
-        <button
-          onClick={() => onToggleMode("text")}
-          className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all min-h-[48px] focus:ring-2 focus:ring-white focus:outline-none ${
-            mode === "text"
-              ? "bg-white text-black shadow-lg"
-              : "text-zinc-400 hover:text-white"
-          }`}
-          aria-pressed={mode === "text"}
-          aria-label="Text reader mode"
-        >
-          Text
-        </button>
+      {/* Live Vision Status Pill */}
+      <div
+        className="px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/20 text-xs font-medium text-white flex items-center gap-2 min-h-[48px]"
+        aria-label="Live vision active"
+      >
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+        <span>Live Vision</span>
       </div>
 
       {/* Torch Toggle Pill */}
       {hasTorch ? (
         <button
           onClick={onToggleTorch}
-          className={`px-3 py-2.5 rounded-full border text-xs font-medium transition-all min-h-[48px] min-w-[48px] flex items-center justify-center ${
+          className={`px-3 py-2.5 rounded-full border text-xs font-medium transition-all min-h-[48px] min-w-[48px] flex items-center justify-center focus:ring-2 focus:ring-white ${
             isTorchOn
               ? "bg-white border-white text-black"
               : "bg-black/60 backdrop-blur-xl border-white/20 text-white hover:bg-white/10"

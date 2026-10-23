@@ -18,7 +18,7 @@ Rules:
 7. Medicine, expiry dates, dosages, allergens: state them only if clearly legible. Otherwise say the text is unclear and suggest asking someone.`;
 
 const SCENE_PROMPT =
-  "Describe what is in front of the user right now for safe orientation. Hazards first, then key objects.";
+  "Describe what is in front of the user right now for safe orientation. Hazards first, then key objects and any clearly visible text or signs.";
 
 const TEXT_PROMPT =
   "Read the clearly visible text aloud in natural reading order. Put the text in spoken_summary (up to 40 words) and the full text in text. If there is no readable text, say \"No text found.\"";

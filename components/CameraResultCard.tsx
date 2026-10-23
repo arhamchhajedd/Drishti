@@ -3,13 +3,11 @@
 import React from "react";
 
 interface CameraResultCardProps {
-  mode: "scene" | "text";
   resultText: string;
   onRepeat: () => void;
 }
 
 export function CameraResultCard({
-  mode,
   resultText,
   onRepeat,
 }: CameraResultCardProps) {
@@ -23,7 +21,7 @@ export function CameraResultCard({
     >
       <div className="flex items-center justify-between pb-2 border-b border-white/10">
         <span className="text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
-          {mode === "scene" ? "Description" : "Text Found"}
+          Description
         </span>
         <button
           onClick={onRepeat}

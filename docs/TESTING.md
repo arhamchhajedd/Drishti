@@ -84,12 +84,11 @@ This checklist is designed for end-to-end verification of Drishti on real mobile
 
 ---
 
-## 6. Mode & Voice Controls
+## 6. Voice & Repeat Controls
 
-- [ ] **Step 6.1 - Text Reading Mode:**
-  - Tap the "Text" pill button on the top bar (minimum 48px target).
-  - Point phone at a document or packaging.
-  - **Expected:** Reads clearly legible text in natural reading order. Does not guess expired dates or dosages.
+- [ ] **Step 6.1 - Unified Text & Scene Orientation:**
+  - Point phone at packaging, signs, or text in the room.
+  - **Expected:** Without needing to toggle any mode buttons, Drishti naturally incorporates readable text and hazard orientation in speech.
 - [ ] **Step 6.2 - Repeat Last:**
   - Tap the "Repeat" button.
   - **Expected:** Repeats the last spoken description verbatim.

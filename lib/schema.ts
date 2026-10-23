@@ -9,6 +9,7 @@ export const DescribeRequestSchema = z
   .strict();
 
 export type DescribeRequest = z.infer<typeof DescribeRequestSchema>;
+export type Mode = "scene" | "text";
 
 export const DescribeResponseSchema = z
   .object({
