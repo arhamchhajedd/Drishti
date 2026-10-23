@@ -2,17 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mode } from "@/components/CameraTopBar";
+import { SpeechPriority } from "@/hooks/useSpeech";
 
 interface UseAutoScanProps {
   isActive: boolean;
   mode: Mode;
   captureFrame: () => string | null;
-  speak: (text: string, interrupt?: boolean, onEnd?: () => void) => void;
+  speak: (text: string, interrupt?: boolean, onEnd?: () => void, priority?: SpeechPriority) => void;
   vibrate: (pattern: "tap" | "success" | "hazard") => void;
 }
 
-const SESSION_REQUEST_CAP = 120; // Guardrail to prevent endless quota consumption
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes inactivity auto-pause
+const SESSION_REQUEST_CAP = 120;
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function useAutoScan({
   isActive,
@@ -63,11 +64,16 @@ export function useAutoScan({
   const processNextFrame = useCallback(async () => {
     if (!isMountedRef.current || !isActive || isProcessing || !isScanning) return;
 
-    // Check session request limit
     if (requestCountRef.current >= SESSION_REQUEST_CAP) {
       setIsScanning(false);
       clearScanTimer();
       speak("Session limit reached. Tap anywhere to continue scanning.");
+      return;
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      speak("You are offline. Please check your internet connection.", false, undefined, "hazard");
+      scheduleNext(4000);
       return;
     }
 
@@ -87,7 +93,19 @@ export function useAutoScan({
         body: JSON.stringify({ image: imageBase64, mode }),
       });
 
-      if (!res.ok) throw new Error("Request failed");
+      if (!res.ok) {
+        if (res.status === 429) {
+          speak("Server busy. Pausing briefly.", false);
+          scheduleNext(4000);
+          return;
+        }
+        if (res.status === 504) {
+          speak("Vision request timed out. Retrying.", false);
+          scheduleNext(3000);
+          return;
+        }
+        throw new Error("Request failed");
+      }
 
       const data = await res.json();
       const output = data.spoken_summary?.trim() || "Scene clear.";
@@ -109,16 +127,24 @@ export function useAutoScan({
         if (isDuplicate) {
           scheduleNext(2500);
         } else {
-          speak(output, true, () => {
-            if (isMountedRef.current && isScanning) {
-              scheduleNext(600);
-            }
-          });
+          speak(
+            output,
+            true,
+            () => {
+              if (isMountedRef.current && isScanning) {
+                scheduleNext(600);
+              }
+            },
+            hasHazards ? "hazard" : "normal"
+          );
         }
       }
     } catch {
       if (isMountedRef.current && isScanning) {
-        scheduleNext(2000);
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          speak("You are offline.", false, undefined, "hazard");
+        }
+        scheduleNext(3000);
       }
     } finally {
       if (isMountedRef.current) {
@@ -154,7 +180,7 @@ export function useAutoScan({
   const toggleScanning = useCallback(() => {
     clearScanTimer();
     if (requestCountRef.current >= SESSION_REQUEST_CAP) {
-      requestCountRef.current = 0; // Reset session budget on manual tap
+      requestCountRef.current = 0;
     }
     resetInactivityTimer();
 

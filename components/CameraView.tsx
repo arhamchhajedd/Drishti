@@ -14,9 +14,9 @@ interface CameraViewProps {
 }
 
 export default function CameraView({ onBack }: CameraViewProps) {
-  const { videoRef, isActive, error, hasTorch, isTorchOn, startCamera, stopCamera, captureFrame, toggleTorch } =
-    useCamera();
   const { speak, stop: stopSpeech, repeatLast } = useSpeech();
+  const { videoRef, isActive, error, hasTorch, isTorchOn, startCamera, stopCamera, captureFrame, toggleTorch } =
+    useCamera((errMsg) => speak(errMsg, true, undefined, "hazard"));
   const { vibrate } = useVibration();
 
   const [mode, setMode] = useState<Mode>("scene");

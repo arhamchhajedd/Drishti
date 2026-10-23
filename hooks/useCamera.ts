@@ -6,7 +6,7 @@ interface TorchCapabilities extends MediaTrackCapabilities {
   torch?: boolean;
 }
 
-export function useCamera() {
+export function useCamera(onError?: (errorMessage: string) => void) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -49,6 +49,12 @@ export function useCamera() {
 
       const videoTrack = mediaStream.getVideoTracks()[0];
       if (videoTrack) {
+        videoTrack.onended = () => {
+          setIsActive(false);
+          const msg = "Camera connection lost.";
+          setError(msg);
+          onError?.(msg);
+        };
         const capabilities = videoTrack.getCapabilities() as TorchCapabilities;
         setHasTorch(Boolean(capabilities.torch));
       }
@@ -56,10 +62,12 @@ export function useCamera() {
       setError(null);
       setIsActive(true);
     } catch {
-      setError("Camera permission denied or camera not found.");
+      const msg = "Camera permission denied or camera not found.";
+      setError(msg);
       setIsActive(false);
+      onError?.(msg);
     }
-  }, [stopCamera]);
+  }, [stopCamera, onError]);
 
   // Stop camera when backgrounded or tab hidden (AGENTS.md rule)
   useEffect(() => {

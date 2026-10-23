@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef } from "react";
 
+export type SpeechPriority = "normal" | "hazard";
+
 function sanitizeSpokenText(text: string): string {
   return text
     .replace(/https?:\/\/\S+/gi, "") // Remove URLs
@@ -15,6 +17,7 @@ export function useSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastSpoken, setLastSpoken] = useState<string>("");
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const currentPriorityRef = useRef<SpeechPriority>("normal");
   const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearSafetyTimer = () => {
@@ -29,12 +32,13 @@ export function useSpeech() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      currentPriorityRef.current = "normal";
       activeUtteranceRef.current = null;
     }
   }, []);
 
   const speak = useCallback(
-    (text: string, interrupt: boolean = true, onEnd?: () => void) => {
+    (text: string, interrupt: boolean = true, onEnd?: () => void, priority: SpeechPriority = "normal") => {
       if (typeof window === "undefined" || !("speechSynthesis" in window)) {
         onEnd?.();
         return;
@@ -46,23 +50,29 @@ export function useSpeech() {
         return;
       }
 
+      // Hazards always interrupt other speech. Normal speech cannot interrupt an active hazard.
+      if (activeUtteranceRef.current && currentPriorityRef.current === "hazard" && priority === "normal") {
+        onEnd?.();
+        return;
+      }
+
       clearSafetyTimer();
 
-      if (interrupt) {
+      if (interrupt || priority === "hazard") {
         window.speechSynthesis.cancel();
       }
 
-      // Resume if browser suspended speech synthesis queue
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
 
       setLastSpoken(cleanText);
+      currentPriorityRef.current = priority;
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
       activeUtteranceRef.current = utterance;
-      utterance.rate = 1.1; // Crisp, fast tempo optimized for blind accessibility
-      utterance.pitch = 1.0;
+      utterance.rate = priority === "hazard" ? 1.15 : 1.1;
+      utterance.pitch = priority === "hazard" ? 1.1 : 1.0;
       utterance.lang = "en-US";
 
       let finished = false;
@@ -71,6 +81,7 @@ export function useSpeech() {
         finished = true;
         clearSafetyTimer();
         activeUtteranceRef.current = null;
+        currentPriorityRef.current = "normal";
         setIsSpeaking(false);
         onEnd?.();
       };
@@ -79,7 +90,6 @@ export function useSpeech() {
       utterance.onend = handleDone;
       utterance.onerror = handleDone;
 
-      // Watchdog: If browser drops onend (known mobile Chrome/Safari bug), recover after speech time
       const estimatedDurationMs = Math.max(1200, (cleanText.split(/\s+/).length / 2.2) * 1000 + 1000);
       safetyTimeoutRef.current = setTimeout(handleDone, estimatedDurationMs);
 

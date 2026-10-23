@@ -16,7 +16,10 @@ export default function LandingView({ onStart }: LandingViewProps) {
 
   const handleStart = () => {
     vibrate("success");
-    speak("Opening camera. Please allow camera access if asked.");
+    speak(
+      "Opening camera. Drishti is an experimental assistance tool, never a replacement for a cane or guide dog. Images are analyzed in memory and not stored.",
+      true
+    );
     onStart();
   };
 
