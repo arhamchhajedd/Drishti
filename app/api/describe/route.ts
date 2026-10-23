@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ApiError } from "@google/genai";
 import { DescribeRequestSchema } from "@/lib/schema";
 import { checkRateLimit, verifyOrigin, validateImageBytes } from "@/lib/security";
 import { analyzeImageWithGemini } from "@/lib/gemini";
+import { logError } from "@/lib/logger";
 
 // Return 405 for non-POST methods
 export async function GET() {
@@ -71,17 +73,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result, {
       status: 200,
       headers: {
+        "Cache-Control": "no-store",
         "X-RateLimit-Remaining": String(rateLimit.remaining),
       },
     });
-  } catch {
-    // Return generic error to client; never leak internals or keys
-    return NextResponse.json(
-      {
-        error: "request_failed",
-        spoken_summary: "Vision analysis is temporarily unavailable. Please retry in a moment.",
-      },
-      { status: 500 }
-    );
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : undefined;
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    logError("describe.failed", {
+      kind: err instanceof Error ? err.name : "unknown",
+      upstreamStatus: status,
+    });
+
+    if (status === 429) {
+      return NextResponse.json({ error: "busy" }, { status: 429 });
+    }
+    if (isTimeout) {
+      return NextResponse.json({ error: "timeout" }, { status: 504 });
+    }
+    // Generic error only; never leak upstream messages or keys to the client
+    return NextResponse.json({ error: "request_failed" }, { status: 502 });
   }
 }

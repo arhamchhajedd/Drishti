@@ -30,12 +30,13 @@ export default function CameraView({ onBack }: CameraViewProps) {
 
   useEffect(() => {
     startCamera();
-    speak("Camera ready. Continuously describing what is in front of you.");
+    vibrate("success");
+    speak("Ready.");
     return () => {
       stopCamera();
       stopSpeech();
     };
-  }, [startCamera, stopCamera, stopSpeech, speak]);
+  }, [startCamera, stopCamera, stopSpeech, speak, vibrate]);
 
   const handleModeChange = (newMode: Mode) => {
     vibrate("tap");

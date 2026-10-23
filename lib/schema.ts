@@ -12,11 +12,11 @@ export type DescribeRequest = z.infer<typeof DescribeRequestSchema>;
 
 export const DescribeResponseSchema = z
   .object({
-    hazards: z.array(z.string()).default([]),
-    objects: z.array(z.string()).default([]),
-    text: z.string().nullable().default(null),
+    hazards: z.array(z.string().max(120)).max(10).default([]),
+    objects: z.array(z.string().max(120)).max(20).default([]),
+    text: z.string().max(2000).nullable().default(null),
     confidence: z.enum(["high", "medium", "low"]).default("medium"),
-    spoken_summary: z.string(),
+    spoken_summary: z.string().min(1).max(600),
   })
   .strict();
 

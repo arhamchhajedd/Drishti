@@ -24,6 +24,7 @@ export function useAutoScan({
   const isMountedRef = useRef(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const runnerRef = useRef<(() => void) | null>(null);
+  const lastOutputRef = useRef<string>("");
 
   const clearScanTimer = () => {
     if (timerRef.current) {
@@ -46,7 +47,7 @@ export function useAutoScan({
 
     const imageBase64 = captureFrame();
     if (!imageBase64) {
-      scheduleNext(400);
+      scheduleNext(300);
       return;
     }
 
@@ -62,20 +63,38 @@ export function useAutoScan({
       if (!res.ok) throw new Error("Request failed");
 
       const data = await res.json();
-      const output = data.spoken_summary || "Scene analyzed.";
+      const output = data.spoken_summary?.trim() || "Scene clear.";
+      const hasHazards = Array.isArray(data.hazards) && data.hazards.length > 0;
 
       if (isMountedRef.current) {
         setResultText(output);
-        vibrate("success");
-        speak(output, true, () => {
-          if (isMountedRef.current && isScanning) {
-            scheduleNext(1500);
-          }
-        });
+
+        // Alert user via distinct vibration
+        if (hasHazards) {
+          vibrate("hazard");
+        } else {
+          vibrate("success");
+        }
+
+        const isDuplicate = output.toLowerCase() === lastOutputRef.current.toLowerCase();
+        lastOutputRef.current = output;
+
+        if (isDuplicate) {
+          // If scene is unchanged, wait quietly for 2.5s before taking next snapshot
+          scheduleNext(2500);
+        } else {
+          // Live speaking: Speak immediately with crisp tempo
+          speak(output, true, () => {
+            if (isMountedRef.current && isScanning) {
+              // Rapid sequential cadence for blind live navigation (600ms gap)
+              scheduleNext(600);
+            }
+          });
+        }
       }
     } catch {
       if (isMountedRef.current && isScanning) {
-        scheduleNext(3000);
+        scheduleNext(2000);
       }
     } finally {
       if (isMountedRef.current) {
@@ -84,16 +103,14 @@ export function useAutoScan({
     }
   }, [isActive, isProcessing, isScanning, mode, captureFrame, speak, vibrate, scheduleNext]);
 
-  // Keep runnerRef updated with the latest callback
   useEffect(() => {
     runnerRef.current = processNextFrame;
   });
 
-  // Start continuous loop when camera is active and scanning is enabled
   useEffect(() => {
     isMountedRef.current = true;
     if (isActive && isScanning && !isProcessing) {
-      scheduleNext(200);
+      scheduleNext(150);
     }
     return () => {
       clearScanTimer();
@@ -112,7 +129,7 @@ export function useAutoScan({
     setIsScanning((prev) => {
       const next = !prev;
       vibrate("tap");
-      speak(next ? "Continuous scanning resumed." : "Scanning paused.");
+      speak(next ? "Scanning resumed." : "Scanning paused.");
       return next;
     });
   }, [speak, vibrate]);
