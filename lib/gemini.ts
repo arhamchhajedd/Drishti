@@ -52,7 +52,7 @@ function getClient(apiKey: string): GoogleGenAI {
   return client;
 }
 
-function parseModelOutput(raw: string | undefined): DescribeResponse | null {
+export function parseModelOutput(raw: string | undefined): DescribeResponse | null {
   if (!raw) return null;
   let parsed: unknown;
   try {

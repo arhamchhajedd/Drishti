@@ -7,8 +7,9 @@ Disclosure of all third-party libraries, models, and APIs used in Drishti AI per
 - **React (v19)**: Client-side UI rendering and state management.
 - **Tailwind CSS (v4)**: Minimalist styling, high-contrast monochrome design tokens.
 - **TypeScript (v5)**: Static typing with strict mode and zero `any` tolerance.
-- **@google/genai**: Official Google Gen AI SDK for server-side Gemini 2.5 Flash multimodal vision calls.
+- **@google/genai**: Official Google Gen AI SDK for server-side Gemini 2.5/3.5 Flash multimodal vision calls.
 - **zod**: Type-safe schema validation for API request bodies and Gemini structured JSON outputs.
+- **vitest**: Unit test runner for schema, security, and prompt injection defense verification.
 
 ## APIs & Browser Capabilities
 - **Web MediaDevices API (`getUserMedia`)**: Accesses the device's rear environment camera.

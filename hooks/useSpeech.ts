@@ -1,17 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { sanitizeSpokenText } from "@/lib/sanitize";
 
 export type SpeechPriority = "normal" | "hazard";
-
-function sanitizeSpokenText(text: string): string {
-  return text
-    .replace(/https?:\/\/\S+/gi, "") // Remove URLs
-    .replace(/<[^>]*>/g, "") // Remove HTML markup
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Remove control characters
-    .trim()
-    .slice(0, 300); // Cap length
-}
 
 export function useSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
